@@ -53,6 +53,8 @@ jobs:
         name: Release Android
         runs-on: ubuntu-latest
         permissions: write-all
+        env:
+          ANDROID_DEV_BUILD: ${{ github.ref == 'refs/heads/test/mpv-hdr-output' }}
 
         steps:
             - name: 代码迁出
@@ -98,9 +100,15 @@ jobs:
               shell: pwsh
               run: lib/scripts/build.ps1 android
 
-            - name: Flutter Build Release Apk
+            - name: Flutter Build Android Apk
               if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
+              shell: bash
+              run: |
+                  args=(--release --split-per-abi --dart-define-from-file=pili_release.json --no-pub)
+                  if [ "$ANDROID_DEV_BUILD" = true ]; then
+                    args+=(--android-project-arg dev=1)
+                  fi
+                  flutter build apk "${args[@]}"
 
             - name: Flutter Build Dev Apk
               if: ${{ github.event_name == 'pull_request' }}
@@ -109,14 +117,18 @@ jobs:
 
             - name: Rename
               run: |
+                  prefix=PiliPlus_android
+                  if [ "$ANDROID_DEV_BUILD" = true ]; then
+                    prefix=PiliPlus_android_dev
+                  fi
                   for file in build/app/outputs/flutter-apk/app-*-release.apk; do
                     abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
-                    mv "$file" "PiliPlus_android_${{ env.version }}_${abi}.apk"
+                    mv "$file" "${prefix}_${{ env.version }}_${abi}.apk"
                   done
               shell: bash
 
             - name: Release
-              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+              if: ${{ github.event_name == 'workflow_dispatch' && env.ANDROID_DEV_BUILD != 'true' && github.event.inputs.tag != '' }}
               uses: softprops/action-gh-release@v3
               with:
                   tag_name: ${{ github.event.inputs.tag }}
