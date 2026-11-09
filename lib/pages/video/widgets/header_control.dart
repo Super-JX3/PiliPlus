@@ -499,8 +499,7 @@ class HeaderControlState extends State<HeaderControl>
                       onTap: () => showPlayerVolumeDialog(
                         context,
                         () => (context as Element).markNeedsBuild(),
-                        nativeDolbyVision:
-                            plPlayerController.usesNativeDolbyVision,
+                        nativeHdr: plPlayerController.usesNativeHdr,
                         onChanged: (_) =>
                             plPlayerController.updatePlayerVolume(),
                       ),
@@ -587,7 +586,12 @@ class HeaderControlState extends State<HeaderControl>
                                         (player.state.tracks.video.length <=
                                                 2 ||
                                             videoDetailCtr.firstVideo.quality ==
-                                                VideoQuality.dolbyVision)) {
+                                                VideoQuality.dolbyVision ||
+                                            Pref.enableNativeHdr10 &&
+                                                videoDetailCtr
+                                                        .firstVideo
+                                                        .quality ==
+                                                    VideoQuality.hdr)) {
                                   videoDetailCtr.playerInit(
                                     position: plPlayerController
                                         .videoPlayerController

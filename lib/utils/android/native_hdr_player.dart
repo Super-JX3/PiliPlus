@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
-/// The Android playback backend for Dolby Vision streams.
+/// The Android playback backend for Dolby Vision and HDR10 streams.
 final class NativeHdrPlayer extends PlatformPlayer {
   static const viewType = 'piliplus/native_hdr';
   static const _host = MethodChannel(viewType);
@@ -57,7 +57,7 @@ final class NativeHdrPlayer extends PlatformPlayer {
       try {
         await pause();
       } on PlatformException catch (error) {
-        debugPrint('Dolby Vision pause after surface failure: ${error.code}');
+        debugPrint('HDR pause after surface failure: ${error.code}');
       }
     }
   }

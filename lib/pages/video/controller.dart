@@ -774,8 +774,7 @@ class VideoDetailController extends GetxController
               videoSource: videoUrl!,
               audioSource: audioUrl,
             ),
-      useNativeHdr:
-          !isFileSource && firstVideo.quality == VideoQuality.dolbyVision,
+      videoQuality: isFileSource ? null : firstVideo.quality,
       seekTo: seek,
       duration: data.timeLength == null
           ? null

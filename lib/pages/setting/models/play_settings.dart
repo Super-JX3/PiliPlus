@@ -10,7 +10,7 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
+import 'package:PiliPlus/plugin/pl_player/models/android_hdr_output.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -75,13 +75,13 @@ List<SettingsModel> get playSettings => [
       getSubtitle: () => '${Pref.dolbyVisionOutput.label} · 下次加载视频时生效',
       leading: const Icon(Icons.hdr_on),
       onTap: (context, setState) async {
-        final output = await showDialog<DolbyVisionOutput>(
+        final output = await showDialog<AndroidHdrOutput>(
           context: context,
-          builder: (_) => SelectDialog<DolbyVisionOutput>(
+          builder: (_) => SelectDialog<AndroidHdrOutput>(
             title: '杜比视界播放器',
             value: Pref.dolbyVisionOutput,
             values: [
-              for (final mode in DolbyVisionOutput.values) (mode, mode.label),
+              for (final mode in AndroidHdrOutput.values) (mode, mode.label),
             ],
           ),
         );
@@ -92,6 +92,22 @@ List<SettingsModel> get playSettings => [
         );
         if (context.mounted) setState();
       },
+    ),
+  if (Platform.isAndroid || Platform.isWindows || Platform.isMacOS)
+    SwitchModel(
+      title: 'mpv HDR 直出（实验）',
+      subtitle: Platform.isAndroid
+          ? '优先用 mpv 和 SurfaceView 播放在线 HDR 真彩、杜比视界'
+          : '在线 HDR 真彩、杜比视界画面在 mpv 原生窗口显示',
+      leading: const Icon(Icons.hdr_on),
+      setKey: SettingBoxKey.enableMpvHdrOutput,
+    ),
+  if (Platform.isAndroid)
+    const SwitchModel(
+      title: 'HDR10 原生播放',
+      subtitle: '在线点播选择「HDR 真彩」时使用 Media3 直出，下次加载视频时生效',
+      leading: Icon(Icons.hdr_on),
+      setKey: SettingBoxKey.enableNativeHdr10,
     ),
   const SwitchModel(
     title: '自动播放',
@@ -505,17 +521,17 @@ Future<void> showPlayerVolumeDialog(
   BuildContext context,
   VoidCallback setState, {
   ValueChanged<double>? onChanged,
-  bool nativeDolbyVision = false,
+  bool nativeHdr = false,
 }) {
   return showVolumeDialog(
     context,
     title: const Text('播放器音量'),
-    value: nativeDolbyVision ? Pref.nativeDolbyVisionVolume : Pref.playerVolume,
-    min: nativeDolbyVision ? 0 : kMinVolume,
-    max: nativeDolbyVision ? 100 : kMaxVolume,
+    value: nativeHdr ? Pref.nativeDolbyVisionVolume : Pref.playerVolume,
+    min: nativeHdr ? 0 : kMinVolume,
+    max: nativeHdr ? 100 : kMaxVolume,
     onChanged: (value) => GStorage.setting
         .put(
-          nativeDolbyVision
+          nativeHdr
               ? SettingBoxKey.nativeDolbyVisionVolume
               : SettingBoxKey.playerVolume,
           value,

@@ -49,6 +49,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/native_hdr_view.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/mpv_hdr_view.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/android/native_hdr_player.dart';
@@ -82,6 +83,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:media_kit/media_kit.dart' show NativePlayer;
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
@@ -1352,8 +1354,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   final revision =
                       plPlayerController.playbackBackendRevision.value;
                   final config = plPlayerController.subtitleConfig.value;
-                  if (plPlayerController.videoPlayerController
-                      case final NativeHdrPlayer player) {
+                  final player = plPlayerController.videoPlayerController;
+                  if (player != null &&
+                      (player is NativeHdrPlayer ||
+                          (Platform.isAndroid &&
+                              plPlayerController.usesMpvHdrOutput))) {
                     return NativeHdrSubtitleView(
                       key: ValueKey(revision),
                       player: player,
@@ -2058,6 +2063,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     alignment: widget.alignment,
                     child: player is NativeHdrPlayer
                         ? NativeHdrView(
+                            key: ValueKey(revision),
+                            player: player,
+                            width: plPlayerController.width,
+                            height: plPlayerController.height,
+                            aspectRatio: videoFit.aspectRatio,
+                          )
+                        : player is NativePlayer &&
+                              plPlayerController.usesMpvHdrOutput
+                        ? MpvHdrView(
                             key: ValueKey(revision),
                             player: player,
                             width: plPlayerController.width,

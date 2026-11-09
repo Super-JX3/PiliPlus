@@ -57,6 +57,8 @@ public final class NativeHdrPlayback implements FlutterPlugin {
     public void onAttachedToEngine(FlutterPluginBinding binding) {
         context = binding.getApplicationContext();
         binding.getPlatformViewRegistry().registerViewFactory(
+                MpvHdrSurface.TYPE, new MpvHdrSurface(binding.getBinaryMessenger()));
+        binding.getPlatformViewRegistry().registerViewFactory(
                 CHANNEL, new PlatformViewFactory(StandardMessageCodec.INSTANCE) {
                     @Override
                     public PlatformView create(Context viewContext, int viewId, Object args) {

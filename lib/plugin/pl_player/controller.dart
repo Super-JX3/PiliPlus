@@ -12,13 +12,14 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
-import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
+import 'package:PiliPlus/plugin/pl_player/models/android_hdr_output.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
@@ -187,10 +188,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   bool _isMuted = false;
 
-  bool get usesNativeDolbyVision => _videoPlayerController is NativeHdrPlayer;
+  bool get usesNativeHdr => _videoPlayerController is NativeHdrPlayer;
+
+  bool _mpvHdrOutput = false;
+  bool get usesMpvHdrOutput => _mpvHdrOutput;
 
   double get playerVolume =>
-      usesNativeDolbyVision ? Pref.nativeDolbyVisionVolume : Pref.playerVolume;
+      usesNativeHdr ? Pref.nativeDolbyVisionVolume : Pref.playerVolume;
 
   /// 听视频
   late final RxBool onlyPlayAudio = false.obs;
@@ -720,7 +724,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> setDataSource(
     DataSource dataSource, {
     bool isLive = false,
-    bool useNativeHdr = false,
+    VideoQuality? videoQuality,
     bool autoplay = true,
     // 初始化播放位置
     Duration? seekTo,
@@ -782,12 +786,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         seekTo,
         volume,
         rotate,
-        dolbyVisionOutput:
-            Platform.isAndroid &&
-                useNativeHdr &&
-                !isLive &&
-                !onlyPlayAudio.value
-            ? Pref.dolbyVisionOutput
+        mpvHdrOutput:
+            (Platform.isAndroid || Platform.isWindows || Platform.isMacOS) &&
+            !isLive &&
+            !onlyPlayAudio.value &&
+            Pref.enableMpvHdrOutput &&
+            (videoQuality == VideoQuality.hdr ||
+                videoQuality == VideoQuality.dolbyVision),
+        hdrOutput: Platform.isAndroid && !isLive && !onlyPlayAudio.value
+            ? switch (videoQuality) {
+                VideoQuality.dolbyVision => Pref.dolbyVisionOutput,
+                VideoQuality.hdr when Pref.enableNativeHdr10 => .surface,
+                _ => .mpv,
+              }
             : .mpv,
       );
 
@@ -874,11 +885,21 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
   }
 
-  Future<NativePlayer> _initPlayer() async {
+  Future<NativePlayer> _initPlayer({required bool mpvHdrOutput}) async {
     assert(_videoPlayerController == null);
     final opt = {
       'video-sync': Pref.videoSync,
       if (Platform.isAndroid) 'ao': Pref.audioOutput,
+      if (mpvHdrOutput)
+        ...Platform.isAndroid
+            ? {'vo': 'null', 'vid': 'no', 'hwdec': 'mediacodec'}
+            : {
+                'vo': 'gpu-next',
+                'gpu-api': Platform.isWindows ? 'd3d11' : 'vulkan',
+                'gpu-context': Platform.isWindows ? 'd3d11' : 'macvk',
+                'target-colorspace-hint': 'yes',
+                'title': 'PiliPlus · mpv HDR',
+              },
     };
     final autosync = Pref.autosync;
     if (autosync != '0') {
@@ -897,14 +918,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     assert(_videoController == null);
 
-    _videoController = await VideoController.create(
-      player,
-      configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: hwdec != null,
-        androidAttachSurfaceAfterVideoParameters: false,
-        hwdec: hwdec,
-      ),
-    );
+    if (!mpvHdrOutput) {
+      _videoController = await VideoController.create(
+        player,
+        configuration: VideoControllerConfiguration(
+          enableHardwareAcceleration: hwdec != null,
+          androidAttachSurfaceAfterVideoParameters: false,
+          hwdec: hwdec,
+        ),
+      );
+    }
 
     if (Platform.isAndroid) {
       // Avoid sizing the surface using mpv's idle window between media loads.
@@ -925,15 +948,18 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Duration? seekTo,
     Volume? volume,
     int? rotate, {
-    required DolbyVisionOutput dolbyVisionOutput,
+    required AndroidHdrOutput hdrOutput,
+    required bool mpvHdrOutput,
   }) async {
-    final useNativeHdr = dolbyVisionOutput != DolbyVisionOutput.mpv;
+    final useNativeHdr = !mpvHdrOutput && hdrOutput != AndroidHdrOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();
 
     if (_videoPlayerController case final previous?
-        when useNativeHdr || previous is NativeHdrPlayer) {
+        when useNativeHdr ||
+            previous is NativeHdrPlayer ||
+            _mpvHdrOutput != mpvHdrOutput) {
       _removeListeners();
       _stopWakeLockTimer();
       _videoPlayerController = null;
@@ -947,15 +973,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (player == null) {
       player = useNativeHdr
           ? await NativeHdrPlayer.create(
-              useTexture: dolbyVisionOutput == DolbyVisionOutput.texture,
+              useTexture: hdrOutput == AndroidHdrOutput.texture,
             )
-          : await _initPlayer();
+          : await _initPlayer(mpvHdrOutput: mpvHdrOutput);
       if (_playerCount == 0) {
         await player.dispose();
         _videoController = null;
         return;
       }
       _videoPlayerController = player;
+      _mpvHdrOutput = mpvHdrOutput;
       _startListeners(player);
       playbackBackendRevision.value++;
       if (player is NativePlayer &&
@@ -1181,7 +1208,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         })),
       stream.error.listen((String event) {
         if (player is NativeHdrPlayer) {
-          SmartDialog.showToast('杜比视界播放失败（$event）');
+          SmartDialog.showToast('HDR 原生播放失败（$event）');
           return;
         }
         if (dataSource is FileSource &&
@@ -1876,7 +1903,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   int _screenshotState = 0;
   Future<void> takeScreenshot() async {
     if (_videoPlayerController is NativeHdrPlayer) {
-      SmartDialog.showToast('杜比视界播放暂不支持截图');
+      SmartDialog.showToast('HDR 原生播放暂不支持截图');
       return;
     }
     if (_screenshotState > 0) return;
