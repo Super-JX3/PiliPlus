@@ -10,4 +10,11 @@ abstract final class PlatformUtils {
 
   @pragma("vm:platform-const")
   static final bool isDarwin = Platform.isIOS || Platform.isMacOS;
+
+  static final bool supportsMpvHdrOutput =
+      Platform.isAndroid ||
+      Platform.isWindows ||
+      Platform.isMacOS ||
+      (Platform.isLinux &&
+          (Platform.environment['WAYLAND_DISPLAY']?.isNotEmpty ?? false));
 }

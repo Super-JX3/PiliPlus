@@ -93,7 +93,7 @@ List<SettingsModel> get playSettings => [
         if (context.mounted) setState();
       },
     ),
-  if (Platform.isAndroid || Platform.isWindows || Platform.isMacOS)
+  if (PlatformUtils.supportsMpvHdrOutput)
     SwitchModel(
       title: 'mpv HDR 直出（实验）',
       subtitle: Platform.isAndroid

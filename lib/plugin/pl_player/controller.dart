@@ -787,7 +787,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         volume,
         rotate,
         mpvHdrOutput:
-            (Platform.isAndroid || Platform.isWindows || Platform.isMacOS) &&
+            PlatformUtils.supportsMpvHdrOutput &&
             !isLive &&
             !onlyPlayAudio.value &&
             Pref.enableMpvHdrOutput &&
@@ -896,7 +896,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             : {
                 'vo': 'gpu-next',
                 'gpu-api': Platform.isWindows ? 'd3d11' : 'vulkan',
-                'gpu-context': Platform.isWindows ? 'd3d11' : 'macvk',
+                'gpu-context': switch (Platform.operatingSystem) {
+                  'windows' => 'd3d11',
+                  'linux' => 'waylandvk',
+                  _ => 'macvk',
+                },
                 'target-colorspace-hint': 'yes',
                 'title': 'PiliPlus · mpv HDR',
               },
