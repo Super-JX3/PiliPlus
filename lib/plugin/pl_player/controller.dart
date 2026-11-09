@@ -781,25 +781,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         return;
       }
       // 配置Player 音轨、字幕等等
+      final isOnDemandVideo = !isLive && !onlyPlayAudio.value;
+      final hdrOutput = Platform.isAndroid && isOnDemandVideo
+          ? switch (videoQuality) {
+              VideoQuality.dolbyVision => Pref.dolbyVisionOutput,
+              VideoQuality.hdr when Pref.enableNativeHdr10 =>
+                AndroidHdrOutput.surface,
+              _ => AndroidHdrOutput.mpv,
+            }
+          : AndroidHdrOutput.mpv;
       await _createVideoController(
         dataSource,
         seekTo,
         volume,
         rotate,
         mpvHdrOutput:
+            hdrOutput == AndroidHdrOutput.mpv &&
             PlatformUtils.supportsMpvHdrOutput &&
-            !isLive &&
-            !onlyPlayAudio.value &&
+            isOnDemandVideo &&
             Pref.enableMpvHdrOutput &&
             (videoQuality == VideoQuality.hdr ||
                 videoQuality == VideoQuality.dolbyVision),
-        hdrOutput: Platform.isAndroid && !isLive && !onlyPlayAudio.value
-            ? switch (videoQuality) {
-                VideoQuality.dolbyVision => Pref.dolbyVisionOutput,
-                VideoQuality.hdr when Pref.enableNativeHdr10 => .surface,
-                _ => .mpv,
-              }
-            : .mpv,
+        hdrOutput: hdrOutput,
       );
 
       if (_playerCount == 0) {
@@ -955,7 +958,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required AndroidHdrOutput hdrOutput,
     required bool mpvHdrOutput,
   }) async {
-    final useNativeHdr = !mpvHdrOutput && hdrOutput != AndroidHdrOutput.mpv;
+    final useNativeHdr = hdrOutput != AndroidHdrOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();

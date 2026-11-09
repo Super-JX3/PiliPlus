@@ -19,6 +19,11 @@ turn on **mpv HDR 直出（实验）**, reopen an online video and choose **HDR 
 or **杜比视界**. The switch defaults to off. Linux HDR output depends on the
 system libmpv build, Vulkan driver, Wayland compositor and HDR display.
 
+On Android, the selected Dolby Vision player takes precedence when it is
+set to Media3. The native HDR10 switch takes precedence for HDR 真彩 only.
+To test mpv for either quality, select mpv for Dolby Vision or turn off
+native HDR10 for HDR 真彩, then reopen the video.
+
 Record build results separately from device results. For device testing,
 record the OS, display, video ID and quality. Compare HDR10 and Dolby Vision
 samples where available, check the display's HDR status and picture color,

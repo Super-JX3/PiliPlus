@@ -97,7 +97,7 @@ List<SettingsModel> get playSettings => [
     SwitchModel(
       title: 'mpv HDR 直出（实验）',
       subtitle: Platform.isAndroid
-          ? '优先用 mpv 和 SurfaceView 播放在线 HDR 真彩、杜比视界'
+          ? '使用 mpv 播放在线 HDR 真彩和杜比视界。已为当前画质选择 Media3 时，优先使用 Media3。'
           : '在线 HDR 真彩、杜比视界画面在 mpv 原生窗口显示',
       leading: const Icon(Icons.hdr_on),
       setKey: SettingBoxKey.enableMpvHdrOutput,
