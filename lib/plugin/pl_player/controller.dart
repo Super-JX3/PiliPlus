@@ -12,13 +12,14 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
-import 'package:PiliPlus/plugin/pl_player/models/dolby_vision_output.dart';
+import 'package:PiliPlus/plugin/pl_player/models/android_hdr_output.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
@@ -187,10 +188,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   bool _isMuted = false;
 
-  bool get usesNativeDolbyVision => _videoPlayerController is NativeHdrPlayer;
+  bool get usesNativeHdr => _videoPlayerController is NativeHdrPlayer;
 
   double get playerVolume =>
-      usesNativeDolbyVision ? Pref.nativeDolbyVisionVolume : Pref.playerVolume;
+      usesNativeHdr ? Pref.nativeDolbyVisionVolume : Pref.playerVolume;
 
   /// 听视频
   late final RxBool onlyPlayAudio = false.obs;
@@ -720,7 +721,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> setDataSource(
     DataSource dataSource, {
     bool isLive = false,
-    bool useNativeHdr = false,
+    VideoQuality? videoQuality,
     bool autoplay = true,
     // 初始化播放位置
     Duration? seekTo,
@@ -782,12 +783,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         seekTo,
         volume,
         rotate,
-        dolbyVisionOutput:
-            Platform.isAndroid &&
-                useNativeHdr &&
-                !isLive &&
-                !onlyPlayAudio.value
-            ? Pref.dolbyVisionOutput
+        hdrOutput: Platform.isAndroid && !isLive && !onlyPlayAudio.value
+            ? switch (videoQuality) {
+                VideoQuality.dolbyVision => Pref.dolbyVisionOutput,
+                VideoQuality.hdr when Pref.enableNativeHdr10 => .surface,
+                _ => .mpv,
+              }
             : .mpv,
       );
 
@@ -925,9 +926,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Duration? seekTo,
     Volume? volume,
     int? rotate, {
-    required DolbyVisionOutput dolbyVisionOutput,
+    required AndroidHdrOutput hdrOutput,
   }) async {
-    final useNativeHdr = dolbyVisionOutput != DolbyVisionOutput.mpv;
+    final useNativeHdr = hdrOutput != AndroidHdrOutput.mpv;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();
@@ -947,7 +948,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (player == null) {
       player = useNativeHdr
           ? await NativeHdrPlayer.create(
-              useTexture: dolbyVisionOutput == DolbyVisionOutput.texture,
+              useTexture: hdrOutput == AndroidHdrOutput.texture,
             )
           : await _initPlayer();
       if (_playerCount == 0) {
@@ -1181,7 +1182,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         })),
       stream.error.listen((String event) {
         if (player is NativeHdrPlayer) {
-          SmartDialog.showToast('杜比视界播放失败（$event）');
+          SmartDialog.showToast('HDR 原生播放失败（$event）');
           return;
         }
         if (dataSource is FileSource &&
@@ -1876,7 +1877,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   int _screenshotState = 0;
   Future<void> takeScreenshot() async {
     if (_videoPlayerController is NativeHdrPlayer) {
-      SmartDialog.showToast('杜比视界播放暂不支持截图');
+      SmartDialog.showToast('HDR 原生播放暂不支持截图');
       return;
     }
     if (_screenshotState > 0) return;

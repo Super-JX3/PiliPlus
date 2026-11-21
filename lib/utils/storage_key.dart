@@ -21,6 +21,7 @@ abstract final class SettingBoxKey {
       hardwareDecoding = 'hardwareDecoding',
       enableNativeDolbyVision = 'enableNativeDolbyVision',
       dolbyVisionOutput = 'dolbyVisionOutput',
+      enableNativeHdr10 = 'enableNativeHdr10',
       nativeDolbyVisionVolume = 'nativeDolbyVisionVolume',
       videoSync = 'videoSync',
       autosync = 'autosync',

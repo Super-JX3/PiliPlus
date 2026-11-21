@@ -51,16 +51,56 @@ class NativeHdrView extends StatelessWidget {
   }
 }
 
-class _NativeHdrSurface extends StatefulWidget {
+class _NativeHdrSurface extends StatelessWidget {
   const _NativeHdrSurface({required this.player});
 
   final NativeHdrPlayer player;
 
   @override
-  State<_NativeHdrSurface> createState() => _NativeHdrSurfaceState();
+  Widget build(BuildContext context) => HdrSurfaceComposition(
+    onAvailability: player.setSurfaceAvailable,
+    errorMessage: 'HDR 画面初始化失败。请在播放器设置关闭 HDR10 原生播放或将杜比视界播放器切回 mpv，再重新打开视频。',
+    builder: (context) => PlatformViewLink(
+      viewType: NativeHdrPlayer.viewType,
+      surfaceFactory: (context, controller) => AndroidViewSurface(
+        controller: controller as AndroidViewController,
+        hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+        gestureRecognizers: const {},
+      ),
+      onCreatePlatformView: (params) {
+        final controller = PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: params.viewType,
+          layoutDirection: Directionality.of(context),
+          creationParams: player.id,
+          creationParamsCodec: const StandardMessageCodec(),
+          onFocus: () => params.onFocusChanged(true),
+        );
+        return controller
+          ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
+          ..create();
+      },
+    ),
+  );
 }
 
-class _NativeHdrSurfaceState extends State<_NativeHdrSurface> {
+class HdrSurfaceComposition extends StatefulWidget {
+  const HdrSurfaceComposition({
+    required this.builder,
+    required this.errorMessage,
+    this.onAvailability,
+    super.key,
+  });
+
+  final WidgetBuilder builder;
+  final String errorMessage;
+  final Future<void> Function(bool)? onAvailability;
+
+  @override
+  State<HdrSurfaceComposition> createState() => _HdrSurfaceCompositionState();
+}
+
+class _HdrSurfaceCompositionState extends State<HdrSurfaceComposition> {
   static int _activeViews = 0;
   static Future<bool>? _prepareComposition;
   late final Future<bool> _ready;
@@ -75,9 +115,9 @@ class _NativeHdrSurfaceState extends State<_NativeHdrSurface> {
       );
       return true;
     } on PlatformException catch (error) {
-      debugPrint('Dolby Vision composition: ${error.code}');
+      debugPrint('HDR composition: ${error.code}');
     } on MissingPluginException catch (error) {
-      debugPrint('Dolby Vision composition: ${error.message}');
+      debugPrint('HDR composition: ${error.message}');
     }
     return false;
   }
@@ -89,7 +129,7 @@ class _NativeHdrSurfaceState extends State<_NativeHdrSurface> {
     _ready = _prepareComposition ??= _setSynchronization(false);
     unawaited(
       _ready.then((ready) {
-        if (mounted) return widget.player.setSurfaceAvailable(ready);
+        if (mounted) return widget.onAvailability?.call(ready);
       }),
     );
   }
@@ -111,38 +151,18 @@ class _NativeHdrSurfaceState extends State<_NativeHdrSurface> {
         return const SizedBox.expand();
       }
       if (snapshot.data != true) {
-        return const Center(
+        return Center(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Text(
-              '杜比视界画面初始化失败。请在播放器设置切回 mpv 后重新打开视频。',
+              widget.errorMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         );
       }
-      return PlatformViewLink(
-        viewType: NativeHdrPlayer.viewType,
-        surfaceFactory: (context, controller) => AndroidViewSurface(
-          controller: controller as AndroidViewController,
-          hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-          gestureRecognizers: const {},
-        ),
-        onCreatePlatformView: (params) {
-          final controller = PlatformViewsService.initExpensiveAndroidView(
-            id: params.id,
-            viewType: params.viewType,
-            layoutDirection: Directionality.of(context),
-            creationParams: widget.player.id,
-            creationParamsCodec: const StandardMessageCodec(),
-            onFocus: () => params.onFocusChanged(true),
-          );
-          return controller
-            ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
-            ..create();
-        },
-      );
+      return widget.builder(context);
     },
   );
 }
@@ -156,7 +176,7 @@ class NativeHdrSubtitleView extends StatefulWidget {
     super.key,
   });
 
-  final NativeHdrPlayer player;
+  final PlatformPlayer player;
   final SubtitleViewConfiguration configuration;
   final bool enableDrag;
   final ValueChanged<EdgeInsets> onUpdatePadding;

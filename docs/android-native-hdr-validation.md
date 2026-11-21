@@ -1,4 +1,4 @@
-# Android Dolby Vision validation build
+# Android native HDR validation build
 
 On Android, open **设置 → 播放器设置 → 杜比视界播放器** and select
 **Media3 · SurfaceView（新合成）**. Reopen the online video and select
@@ -7,8 +7,12 @@ video source is loaded. A fresh install defaults to mpv.
 
 Media3 sends the video to a SurfaceView while Flutter keeps its main scene on
 its original render surface. The existing player continues to own danmaku,
-subtitles, gestures and controls. Other qualities, live streams and downloaded
-videos use mpv. The Flutter texture option is experimental and did not display
+subtitles, gestures and controls.
+
+For online HDR10, enable **设置 → 播放器设置 → HDR10 原生播放**, reopen the
+video and select **HDR 真彩**. This setting defaults to off and always uses
+SurfaceView when enabled. HDR Vivid, SDR, live streams and downloaded videos
+use mpv. The Flutter texture option is experimental and did not display
 Dolby Vision correctly in the device comparison.
 
 The tester confirmed normal playback and UI with the new SurfaceView
@@ -26,6 +30,8 @@ flutter build apk --release --target-platform android-arm64 --split-per-abi \
 - Open the same Profile 5 and Profile 8 samples used for the standalone build.
   Select **杜比视界** in the regular quality menu and compare both samples with
   the official app. Check for Profile 5 color tint and Profile 8 HDR output.
+- Compare the same HDR 真彩 stream with the HDR10 setting off and on, with
+  screen brightness unchanged. Check HDR output, highlight detail and color.
 - Select mpv and reload the same video to confirm it uses the original backend.
   Reopen settings to confirm the selection was saved.
 - Confirm danmaku, subtitles, pause/resume, seeking, and playback speed in the
@@ -52,5 +58,5 @@ flutter build apk --release --target-platform android-arm64 --split-per-abi \
   not establish HDR display output. `adb logcat -s PiliNativeHDR` records decoder
   names and playback error codes without signed media URLs.
 
-In Dolby Vision mode, mpv shaders and the player's frame screenshot feature are
+In native HDR mode, mpv shaders and the player's frame screenshot feature are
 unavailable. Subtitle changes can briefly rebuffer.
